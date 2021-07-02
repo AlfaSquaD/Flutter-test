@@ -23,6 +23,8 @@ class DailyData extends HiveObject {
   int targetFat;
   @HiveField(8)
   List<FoodData> eaten_food = [];
+  @HiveField(9)
+  double totalKilocalories = 0;
 
   DailyData(
       {required this.date,

@@ -3,12 +3,11 @@ import 'package:practice/models/food.dart';
 
 abstract class FoodTrackingI {
   FoodTrackingI? instance;
-  Object? currentSummary;
-  Future<Object> getCurrentSummary();
-  Future<bool> addFoodToCurrentSummary(
-      Food food, MealMeasure measure, double amount);
+  DailyData? currentSummary;
+  DailyData? getCurrentSummary();
+  void addFoodToCurrentSummary(Food food, MealMeasure measure, double amount);
 
   // Singleton
   Future<void> createInstance();
-  Future<FoodTrackingI> getInstance();
+  FoodTrackingI? getInstance();
 }

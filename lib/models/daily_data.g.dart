@@ -26,13 +26,14 @@ class DailyDataAdapter extends TypeAdapter<DailyData> {
       ..totalCarbohydrate = fields[1] as double
       ..totalFat = fields[2] as double
       ..totalProtein = fields[3] as double
-      ..eaten_food = (fields[8] as List).cast<FoodData>();
+      ..eaten_food = (fields[8] as List).cast<FoodData>()
+      ..totalKilocalories = fields[9] as double;
   }
 
   @override
   void write(BinaryWriter writer, DailyData obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class DailyDataAdapter extends TypeAdapter<DailyData> {
       ..writeByte(7)
       ..write(obj.targetFat)
       ..writeByte(8)
-      ..write(obj.eaten_food);
+      ..write(obj.eaten_food)
+      ..writeByte(9)
+      ..write(obj.totalKilocalories);
   }
 
   @override

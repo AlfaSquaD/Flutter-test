@@ -20,11 +20,12 @@ void main() async {
       .ensureInitialized(); // Before any other process wait for Flutters' init.
   Directory dir = await getApplicationDocumentsDirectory();
   Hive.registerAdapter(FoodAdapter());
+  Hive.registerAdapter(FoodDataAdapter());
   Hive.registerAdapter(DailyDataAdapter());
+  Hive.registerAdapter(MealMeasureAdapter());
   Hive.init(dir.path);
-  HiveDailyData.instance =
-      HiveDailyData(dailyBox: await Hive.openLazyBox("daily"));
-  await HiveDailyData.instance?.setCurrentSummary();
+  HiveDailyData.instance = HiveDailyData(dailyBox: await Hive.openBox("daily"));
+  await HiveDailyData.instance!.setCurrentSummary();
   HiveFoods.instance = HiveFoods(foodBox: await Hive.openBox("foods"));
   SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
   bool _firstInit = sharedPreferences.getBool("firstInit") ?? true;
@@ -32,6 +33,7 @@ void main() async {
     var data = jsonDecode(await rootBundle.loadString("assets/data.json"));
     data["data"].forEach((el) {
       HiveFoods.instance!.foodBox.add(Food.fromJson(el));
+      sharedPreferences.setBool("firstInit", false);
     });
   }
   initializeDateFormatting("tr_TR", null).then((value) => runApp(MyApp()));
@@ -118,19 +120,65 @@ class MyHomePage extends StatelessWidget {
                 ),
               )
             ])),
-            SliverFixedExtentList(
-              itemExtent:
-                  HiveDailyData.currentSummary?.eaten_food.length.toDouble() ??
-                      0.0,
-              delegate: SliverChildBuilderDelegate(
-                (BuildContext context, int index) {
-                  return Container(
-                    alignment: Alignment.center,
-                    color: Colors.lightBlue[100 * (index % 9)],
-                    child: Text('List Item $index'),
-                  );
-                },
-              ),
+            Consumer<DailyData?>(
+              builder: (context, value, child) => value!.eaten_food.length != 0
+                  ? SliverFixedExtentList(
+                      itemExtent: 70.0,
+                      delegate: SliverChildListDelegate([
+                        for (int i = 0; i < value.eaten_food.length; i++)
+                          ListTile(
+                            title: Text(value.eaten_food[i].food.name),
+                            subtitle: Text(
+                                "${value.eaten_food[i].amount} ${MealMeasureToString(value.eaten_food[i].mealMeasure)}"),
+                            trailing: IconButton(
+                                onPressed: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(25.0))),
+                                    builder: (context) => Container(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Text("Eminmisiniz",
+                                                style: const TextStyle(
+                                                    fontSize: 20)),
+                                          ),
+                                          Divider(
+                                            height: 10,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: TextButton(
+                                                onPressed: () {
+                                                  value.removeFood(i);
+                                                  Navigator.of(context).pop();
+                                                },
+                                                child: Text("Sil",
+                                                    style: const TextStyle(
+                                                        fontSize: 20))),
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                )),
+                          )
+                      ]),
+                    )
+                  : SliverFillRemaining(
+                      child: Center(
+                        child: Text("Bir şey kaydedilmedi"),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -189,6 +237,13 @@ class SearchPage extends StatelessWidget {
     return ListTile(
       title: Text(foods.value[index].name),
       subtitle: Text("${foods.value[index].kilocalories} KCal"),
+      onTap: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25.0))),
+        builder: (context) => FoodBottomSheetModal(food: foods.value[index]),
+      ),
     );
   }
 
@@ -196,5 +251,95 @@ class SearchPage extends StatelessWidget {
     foods.value = HiveFoods.instance?.getFoods((el) =>
             el.name.toLowerCase().contains(controller.text.toLowerCase())) ??
         [];
+  }
+}
+
+class FoodBottomSheetModal extends StatefulWidget {
+  final Food food;
+  FoodBottomSheetModal({Key? key, required this.food}) : super(key: key);
+
+  @override
+  _FoodBottomSheetModalState createState() => _FoodBottomSheetModalState();
+}
+
+class _FoodBottomSheetModalState extends State<FoodBottomSheetModal> {
+  MealMeasure selected = MealMeasure.portion;
+  final TextEditingController controller = TextEditingController(text: "1");
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Adı: ${widget.food.name}",
+              style: const TextStyle(fontSize: 30),
+            ),
+            Text(
+              "Kalori: ${widget.food.kilocalories} kcal",
+              style: const TextStyle(fontSize: 20),
+            ),
+            Text("Şeker: ${widget.food.carbohydrate} gr",
+                style: const TextStyle(fontSize: 20)),
+            Text("Yağ: ${widget.food.fat} gr",
+                style: const TextStyle(fontSize: 20)),
+            Text("Protein: ${widget.food.protein} gr",
+                style: const TextStyle(fontSize: 20)),
+            Divider(
+              height: 20,
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Text("Porsiyon"),
+                Switch(
+                    activeTrackColor: Colors.grey,
+                    inactiveTrackColor: Colors.grey,
+                    inactiveThumbColor: Colors.blue,
+                    value: selected == MealMeasure.grams,
+                    onChanged: (value) {
+                      setState(() {
+                        selected =
+                            value ? MealMeasure.grams : MealMeasure.portion;
+                      });
+                    }),
+                Text("Gram")
+              ],
+            ),
+            TextField(
+                autofocus: true,
+                controller: controller,
+                cursorColor: Colors.blueGrey,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Miktar",
+                )),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  0, 20, 0, MediaQuery.of(context).viewInsets.bottom),
+              child: TextButton(
+                child: Text("Ekle", style: const TextStyle(fontSize: 20)),
+                onPressed: () {
+                  _addFood(widget.food, selected,
+                      double.tryParse(controller.text) ?? 0);
+                  Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => MyHomePage(),
+                      ),
+                      (route) => false);
+                },
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addFood(Food food, MealMeasure mealMeasure, double amount) {
+    HiveDailyData.currentSummary!.addFood(food, mealMeasure, amount);
   }
 }

@@ -34,7 +34,7 @@ class DailyData extends HiveObject with ChangeNotifier {
       required this.targetFat,
       required this.targetProtein});
 
-  void addFood(Food food, MealMeasure measure, double amount) {
+  void addFood(Food food, MealMeasure measure, double amount) async {
     switch (measure) {
       case MealMeasure.grams:
         this.totalKilocalories += (food.kilocalories / food.grams) * amount;
@@ -54,16 +54,57 @@ class DailyData extends HiveObject with ChangeNotifier {
     this
         .eaten_food
         .add(FoodData(food: food, amount: amount, mealMeasure: measure));
+    await this.save();
+    notifyListeners();
+  }
+
+  void removeFood(int index) async {
+    FoodData data = eaten_food[index];
+    switch (data.mealMeasure) {
+      case MealMeasure.grams:
+        this.totalKilocalories -=
+            (data.food.kilocalories / data.food.grams) * data.amount;
+        this.totalFat -= (data.food.fat / data.food.grams) * data.amount;
+        this.totalProtein -=
+            (data.food.protein / data.food.grams) * data.amount;
+        this.totalCarbohydrate -=
+            (data.food.carbohydrate / data.food.grams) * data.amount;
+        break;
+      case MealMeasure.portion:
+        this.totalKilocalories -= (data.food.kilocalories) * data.amount;
+        this.totalFat -= (data.food.fat) * data.amount;
+        this.totalProtein -= (data.food.protein) * data.amount;
+        this.totalCarbohydrate -= (data.food.carbohydrate) * data.amount;
+        break;
+      default:
+        break;
+    }
+    eaten_food.removeAt(index);
+    await this.save();
     notifyListeners();
   }
 }
 
-enum MealMeasure { grams, portion }
-
-class FoodData {
+@HiveType(typeId: 2)
+class FoodData extends HiveObject {
+  @HiveField(0)
   Food food;
+  @HiveField(1)
   double amount;
+  @HiveField(2)
   MealMeasure mealMeasure;
   FoodData(
       {required this.food, required this.amount, required this.mealMeasure});
+}
+
+@HiveType(typeId: 3)
+enum MealMeasure {
+  @HiveField(0)
+  grams,
+  @HiveField(1)
+  portion
+}
+
+String MealMeasureToString(MealMeasure measure) {
+  return measure == MealMeasure.grams ? "Gram" : "Porsiyon";
 }

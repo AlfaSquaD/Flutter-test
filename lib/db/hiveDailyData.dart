@@ -6,14 +6,12 @@ import 'package:practice/models/daily_data.dart';
 class HiveDailyData {
   static DailyData? currentSummary;
   static HiveDailyData? instance;
-  LazyBox<DailyData> dailyBox;
-  @override
+  Box<DailyData> dailyBox;
+
   void addFoodToCurrentSummary(Food food, MealMeasure measure, double amount) {
     currentSummary!.addFood(food, measure, amount);
-    currentSummary!.save();
   }
 
-  @override
   DailyData? getCurrentSummary() {
     if (currentSummary == null) throw UninitializedError();
     return currentSummary;
@@ -21,9 +19,9 @@ class HiveDailyData {
 
   HiveDailyData({required this.dailyBox});
 
-  @override
   Future<void> setCurrentSummary() async {
-    currentSummary = await dailyBox.get(Date.getDateString());
+    currentSummary = dailyBox.get(Date.getDateString());
+
     if (currentSummary == null) {
       currentSummary = DailyData(
           date: Date.getDateString(),
@@ -32,7 +30,7 @@ class HiveDailyData {
           targetFat: 100,
           targetProtein: 100); // TODO: These values are placeholders!
 
-      dailyBox.add(currentSummary!);
+      dailyBox.put(Date.getDateString(), currentSummary!);
     }
   }
 }

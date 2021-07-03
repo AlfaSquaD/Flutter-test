@@ -1,11 +1,12 @@
 import 'package:hive/hive.dart';
 import 'package:practice/Utils/date.dart';
-import 'package:practice/db-interface/foodTrackingI.dart';
 import 'package:practice/db-interface/foodsI.dart';
 import 'package:practice/models/food.dart';
 import 'package:practice/models/daily_data.dart';
 
-class HiveDailyData extends FoodTrackingI {
+class HiveDailyData {
+  static DailyData? currentSummary;
+  static HiveDailyData? instance;
   LazyBox<DailyData> dailyBox;
   @override
   void addFoodToCurrentSummary(Food food, MealMeasure measure, double amount) {
@@ -34,9 +35,15 @@ class HiveDailyData extends FoodTrackingI {
   }
 
   @override
-  Future<void> createInstance() async {
-    LazyBox<DailyData> box = await Hive.openLazyBox("daily");
-    instance = HiveDailyData(dailyBox: box);
+  DailyData? getCurrentSummary() {
+    if (currentSummary == null) throw UninitializedError();
+    return currentSummary;
+  }
+
+  HiveDailyData({required this.dailyBox});
+
+  @override
+  Future<void> setCurrentSummary() async {
     currentSummary = await dailyBox.get(Date.getDateString());
     if (currentSummary == null) {
       currentSummary = DailyData(
@@ -49,18 +56,4 @@ class HiveDailyData extends FoodTrackingI {
       dailyBox.add(currentSummary!);
     }
   }
-
-  @override
-  DailyData? getCurrentSummary() {
-    if (currentSummary == null) throw UninitializedError();
-    return currentSummary;
-  }
-
-  @override
-  FoodTrackingI? getInstance() {
-    if (instance == null) throw UninitializedError();
-    return instance;
-  }
-
-  HiveDailyData({required this.dailyBox});
 }

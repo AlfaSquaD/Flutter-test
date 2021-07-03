@@ -3,6 +3,7 @@ import 'package:practice/db-interface/foodsI.dart';
 import 'package:practice/models/food.dart';
 
 class HiveFoods extends FoodsI {
+  static HiveFoods? instance;
   Box<Food> foodBox;
   @override
   Future<void> createInstance() async {

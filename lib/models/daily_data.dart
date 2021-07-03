@@ -1,10 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:practice/models/food.dart';
 
 part 'daily_data.g.dart';
 
 @HiveType(typeId: 1)
-class DailyData extends HiveObject {
+class DailyData extends HiveObject with ChangeNotifier {
   @HiveField(0)
   String date;
   @HiveField(1)
@@ -32,6 +33,29 @@ class DailyData extends HiveObject {
       required this.targetCarbohydrate,
       required this.targetFat,
       required this.targetProtein});
+
+  void addFood(Food food, MealMeasure measure, double amount) {
+    switch (measure) {
+      case MealMeasure.grams:
+        this.totalKilocalories += (food.kilocalories / food.grams) * amount;
+        this.totalFat += (food.fat / food.grams) * amount;
+        this.totalProtein += (food.protein / food.grams) * amount;
+        this.totalCarbohydrate += (food.carbohydrate / food.grams) * amount;
+        break;
+      case MealMeasure.portion:
+        this.totalKilocalories += (food.kilocalories) * amount;
+        this.totalFat += (food.fat) * amount;
+        this.totalProtein += (food.protein) * amount;
+        this.totalCarbohydrate += (food.carbohydrate) * amount;
+        break;
+      default:
+        break;
+    }
+    this
+        .eaten_food
+        .add(FoodData(food: food, amount: amount, mealMeasure: measure));
+    notifyListeners();
+  }
 }
 
 enum MealMeasure { grams, portion }

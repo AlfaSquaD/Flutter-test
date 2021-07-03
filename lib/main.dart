@@ -1,8 +1,8 @@
-import 'dart:ffi';
+import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +13,7 @@ import 'package:practice/models/daily_data.dart';
 import 'package:practice/models/food.dart';
 import 'package:practice/widgets/customPercentIndicator.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding
@@ -25,6 +26,14 @@ void main() async {
       HiveDailyData(dailyBox: await Hive.openLazyBox("daily"));
   await HiveDailyData.instance?.setCurrentSummary();
   HiveFoods.instance = HiveFoods(foodBox: await Hive.openBox("foods"));
+  SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+  bool _firstInit = sharedPreferences.getBool("firstInit") ?? true;
+  if (_firstInit) {
+    var data = jsonDecode(await rootBundle.loadString("assets/data.json"));
+    data["data"].forEach((el) {
+      HiveFoods.instance!.foodBox.add(Food.fromJson(el));
+    });
+  }
   initializeDateFormatting("tr_TR", null).then((value) => runApp(MyApp()));
 }
 
@@ -52,52 +61,63 @@ class MyHomePage extends StatelessWidget {
           slivers: <Widget>[
             SliverAppBar(
               pinned: true,
-              expandedHeight: 200, // TODO: Static value!
-              title: Text("s"),
+              expandedHeight: 300, // TODO: Static value!
               flexibleSpace: FlexibleSpaceBar(
                 centerTitle: true,
                 title: Text(DateFormat.yMMMMd("tr_TR").format(DateTime.now())),
               ),
             ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                  maxHeight: 800,
-                  minHeight: 300,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Consumer<DailyData?>(
-                        builder: (context, value, child) =>
-                            CustomCircularPercentageIndicator(
-                                targetName: "Kilokalori",
-                                target: value!.targetKilocalories,
-                                current: value.totalKilocalories.toInt(),
-                                normalColor: Colors.green,
-                                exceedColor: Colors.red),
-                      ),
-                      Consumer<DailyData?>(
-                        builder: (context, value, child) =>
-                            CustomCircularPercentageIndicator(
-                                targetName: "Kilokalori",
-                                target: value!.targetKilocalories,
-                                current: value.totalKilocalories.toInt(),
-                                normalColor: Colors.green,
-                                exceedColor: Colors.red),
-                      ),
-                      Consumer<DailyData?>(
-                        builder: (context, value, child) =>
-                            CustomCircularPercentageIndicator(
-                                targetName: "Kilokalori",
-                                target: value!.targetKilocalories,
-                                current: value.totalKilocalories.toInt(),
-                                normalColor: Colors.green,
-                                exceedColor: Colors.red),
-                      ),
-                    ],
-                  )),
-            ),
+            SliverList(
+                delegate: SliverChildListDelegate([
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Consumer<DailyData?>(
+                  builder: (context, value, child) =>
+                      CustomCircularPercentageIndicator(
+                          targetName: "Kilokalori",
+                          target: value!.targetKilocalories,
+                          current: value.totalKilocalories.toInt(),
+                          normalColor: Colors.green,
+                          exceedColor: Colors.red),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Consumer<DailyData?>(
+                  builder: (context, value, child) =>
+                      CustomCircularPercentageIndicator(
+                          targetName: "Karbonhidrat",
+                          target: value!.targetCarbohydrate,
+                          current: value.totalCarbohydrate.toInt(),
+                          normalColor: Colors.green,
+                          exceedColor: Colors.red),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Consumer<DailyData?>(
+                  builder: (context, value, child) =>
+                      CustomCircularPercentageIndicator(
+                          targetName: "Protein",
+                          target: value!.targetProtein,
+                          current: value.totalProtein.toInt(),
+                          normalColor: Colors.green,
+                          exceedColor: Colors.red),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Consumer<DailyData?>(
+                  builder: (context, value, child) =>
+                      CustomCircularPercentageIndicator(
+                          targetName: "Yağ",
+                          target: value!.targetFat,
+                          current: value.totalFat.toInt(),
+                          normalColor: Colors.green,
+                          exceedColor: Colors.red),
+                ),
+              )
+            ])),
             SliverFixedExtentList(
               itemExtent:
                   HiveDailyData.currentSummary?.eaten_food.length.toDouble() ??
@@ -116,42 +136,65 @@ class MyHomePage extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: Container(
-        color: Colors.red,
-        height: MediaQuery.of(context).size.height / 13,
+        child: FittedBox(
+          child: Row(
+            children: [
+              InkWell(
+                child: Icon(Icons.add),
+                onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => SearchPage())),
+              )
+            ],
+          ),
+        ),
+        color: Colors.blue,
+        height: MediaQuery.of(context).size.height / 17,
       ),
     );
   }
 }
 
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  final double minHeight;
-  final double maxHeight;
-  final Widget child;
-
-  _SliverAppBarDelegate({
-    required this.minHeight,
-    required this.maxHeight,
-    required this.child,
-  });
-
+class SearchPage extends StatelessWidget {
+  SearchPage({Key? key}) : super(key: key);
+  final TextEditingController controller = TextEditingController();
+  ValueNotifier<List<Food>> foods =
+      ValueNotifier(HiveFoods.instance?.getFoods((el) => true) ?? []);
   @override
-  double get minExtent => minHeight;
-
-  @override
-  double get maxExtent => max(maxHeight, minHeight);
-
-  // 2
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return SizedBox.expand(child: child);
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+            title: TextField(
+                controller: controller,
+                cursorColor: Colors.blueGrey,
+                decoration: const InputDecoration(
+                  labelText: "Ara",
+                ),
+                onChanged: (e) => _onTextChanged()),
+            centerTitle: true),
+        body: ValueListenableBuilder(
+          valueListenable: foods,
+          builder: (context, value, child) => foods.value.length != 0
+              ? ListView.builder(
+                  itemBuilder: (context, index) => _builderFunc(context, index),
+                  itemCount: foods.value.length,
+                )
+              : Container(
+                  alignment: Alignment.center,
+                  child: Text("Nothing Found in database"),
+                ),
+        ));
   }
 
-  // 3
-  @override
-  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return maxHeight != oldDelegate.maxHeight ||
-        minHeight != oldDelegate.minHeight ||
-        child != oldDelegate.child;
+  ListTile _builderFunc(BuildContext context, int index) {
+    return ListTile(
+      title: Text(foods.value[index].name),
+      subtitle: Text("${foods.value[index].kilocalories} KCal"),
+    );
+  }
+
+  void _onTextChanged() {
+    foods.value = HiveFoods.instance?.getFoods((el) =>
+            el.name.toLowerCase().contains(controller.text.toLowerCase())) ??
+        [];
   }
 }

@@ -27,4 +27,15 @@ class Food extends HiveObject {
       required this.fat,
       required this.protein,
       required this.grams});
+
+  factory Food.fromJson(Map<dynamic, dynamic> json) {
+    return Food(
+        id: json["index"].toString(),
+        name: json["Product_description"],
+        kilocalories: json["ENERCC_kcal"]?.toDouble() ?? 0,
+        carbohydrate: json["SUGAR_g"]?.toDouble() ?? 0,
+        fat: json["FAT_g"]?.toDouble() ?? 0.0,
+        protein: json["PROT_g"]?.toDouble() ?? 0.0,
+        grams: 100);
+  }
 }

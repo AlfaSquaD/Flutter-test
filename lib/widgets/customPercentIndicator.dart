@@ -29,11 +29,20 @@ class CustomCircularPercentageIndicator extends StatelessWidget {
           animation: true,
           percent: percent > 1 ? 1 : percent,
           // TODO: Add global style provider
-          header: Text(targetName, style: null),
+          header: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+            child: Text(targetName, style: null),
+          ),
           center: Text("%${(percent * 100).toInt()}"),
         ),
-        Text("Alınan: ${current}"),
-        Text("Hedef: ${target}"),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+          child: Text("Alınan: ${current}"),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Text("Hedef: ${target}"),
+        ),
       ],
     );
   }

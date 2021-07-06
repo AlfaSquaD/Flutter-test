@@ -18,18 +18,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding
       .ensureInitialized(); // Before any other process wait for Flutters' init.
-  Directory dir = await getApplicationDocumentsDirectory();
+  Directory dir =
+      await getApplicationDocumentsDirectory(); // Get application Directory
+  // Hive requires you to register custom objects to program.
+  // Without these write and read from database is going to fail!
   Hive.registerAdapter(FoodAdapter());
   Hive.registerAdapter(FoodDataAdapter());
   Hive.registerAdapter(DailyDataAdapter());
   Hive.registerAdapter(MealMeasureAdapter());
+  // Init. Hive at application directory
   Hive.init(dir.path);
+  // Create HiveDailyData singleton and set daily-data
   HiveDailyData.instance = HiveDailyData(dailyBox: await Hive.openBox("daily"));
   await HiveDailyData.instance!.setCurrentSummary();
+
   HiveFoods.instance = HiveFoods(foodBox: await Hive.openBox("foods"));
+  // SharedPreferences is database manged by Android System.
+  // It is suitable for storing simple data. (Bellow it checks for "is this first launch of app")
   SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
   bool _firstInit = sharedPreferences.getBool("firstInit") ?? true;
   if (_firstInit) {
+    // If it is first launch, adds all foods to database from given json file
     var data = jsonDecode(await rootBundle.loadString("assets/data.json"));
     data["data"].forEach((el) {
       HiveFoods.instance!.foodBox.add(Food.fromJson(el));
@@ -43,7 +52,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -57,8 +65,14 @@ class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // ChangeNotifiers are way to rebuild some widgets according to the given values
+      // Works similar to ValueListenable objects and widgets
+      // Consumers listen the variable provided by
+      // ChangeNotifier Widget and rebuilds widget if necessary.
+      //( TODO: Or every time idk? Should check out !)
       body: ChangeNotifierProvider<DailyData?>.value(
         value: HiveDailyData.currentSummary,
+        // Slivers are widgets that can be used in CustomScrollView
         child: CustomScrollView(
           slivers: <Widget>[
             SliverAppBar(
@@ -70,6 +84,7 @@ class MyHomePage extends StatelessWidget {
               ),
             ),
             SliverList(
+                // Delegate delegates a list of Widgets or Builder of widget
                 delegate: SliverChildListDelegate([
               Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -121,6 +136,9 @@ class MyHomePage extends StatelessWidget {
               )
             ])),
             Consumer<DailyData?>(
+              // This if else checks for if there is any record in DailyData.
+              // If there is, Creates a list of records. Otherwise,
+              // creates a widget that writes "Nothing Found"
               builder: (context, value, child) => value!.eaten_food.length != 0
                   ? SliverFixedExtentList(
                       itemExtent: 70.0,
@@ -131,42 +149,8 @@ class MyHomePage extends StatelessWidget {
                             subtitle: Text(
                                 "${value.eaten_food[i].amount} ${MealMeasureToString(value.eaten_food[i].mealMeasure)}"),
                             trailing: IconButton(
-                                onPressed: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(25.0))),
-                                    builder: (context) => Container(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.all(8.0),
-                                            child: Text("Eminmisiniz",
-                                                style: const TextStyle(
-                                                    fontSize: 20)),
-                                          ),
-                                          Divider(
-                                            height: 10,
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.all(8.0),
-                                            child: TextButton(
-                                                onPressed: () {
-                                                  value.removeFood(i);
-                                                  Navigator.of(context).pop();
-                                                },
-                                                child: Text("Sil",
-                                                    style: const TextStyle(
-                                                        fontSize: 20))),
-                                          )
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
+                                onPressed: () => _deleteFoodModalBottomSheet(
+                                    context, value, i),
                                 icon: Icon(
                                   Icons.delete,
                                   color: Colors.red,
@@ -200,12 +184,46 @@ class MyHomePage extends StatelessWidget {
       ),
     );
   }
+
+  void _deleteFoodModalBottomSheet(
+      BuildContext context, DailyData value, int i) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25.0))),
+      builder: (context) => Container(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child:
+                  Text("Emin misiniz?", style: const TextStyle(fontSize: 20)),
+            ),
+            Divider(
+              height: 10,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextButton(
+                  onPressed: () {
+                    value.removeFood(i);
+                    Navigator.of(context).pop();
+                  },
+                  child: Text("Sil", style: const TextStyle(fontSize: 20))),
+            )
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class SearchPage extends StatelessWidget {
   SearchPage({Key? key}) : super(key: key);
   final TextEditingController controller = TextEditingController();
-  ValueNotifier<List<Food>> foods =
+  final ValueNotifier<List<Food>> foods =
       ValueNotifier(HiveFoods.instance?.getFoods((el) => true) ?? []);
   @override
   Widget build(BuildContext context) {
